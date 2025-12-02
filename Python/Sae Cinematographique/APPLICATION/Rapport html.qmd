@@ -1,0 +1,794 @@
+---
+title: "Raport Python"
+author: "Adam & Yasmine"
+format: 
+  html:
+    self-contained: true
+    toc: true
+    smooth-scroll: true
+execute:
+  echo: false
+editor: visual
+---
+
+## Partie 1
+
+## 1. Chargement des données avec Pandas et aperçu
+
+Dans cette première étape, nous allons charger les données du fichier CSV.
+
+```{python}
+#| echo: false
+import csv
+
+def Charger_donnees(nom_du_fichier, ligne_depart = None, ligne_fin = None, *colonnes, filtre = None ):
+    """
+    Charge les données à partir d'un fichier CSV et les retourne sous forme de liste de dictionnaires.
+
+   :param nom_du_fichier: (str) Le nom du fichier CSV à lire.
+   :param ligne_depart: (int, optionnel) Indice de la première ligne à inclure (compris). Si None, commence au début.
+   :param ligne_fin: (int, optionnel) Indice de la dernière ligne à inclure (non compris). Si None, va jusqu'à la fin.
+   :param colonnes: (*str, optionnel) Noms des colonnes à inclure dans les résultats. Si vide, inclut toutes les colonnes.
+   :param filtre: (tuple, optionnel) Filtre sous la forme (nom_colonne, valeur) pour ne conserver que les lignes où 
+                  la colonne spécifiée a la valeur donnée.
+   :return: (list of dict) Liste des lignes sélectionnées du fichier, chacune représentée comme un dictionnaire.
+   """
+    with open(nom_du_fichier,"r", encoding = 'ISO-8859-1') as fich: #ouverture en lecture
+        data = csv.DictReader(fich, delimiter=";") #lecture- utilisation parseur
+        lignes = list(data)
+        # Sélectionner une plage de lignes si précisé
+        if ligne_depart is not None and ligne_fin is not None:
+            lignes = lignes[ligne_depart:ligne_fin]
+
+        # Sélectionner seulement certaines colonnes si demandées
+        if colonnes:
+            lignes = [{col: ligne[col] for col in colonnes if col in ligne} for ligne in lignes]
+            
+
+        return lignes
+```
+
+Nous visualiserons un aperçu des données pour vérifier le bon chargement
+
+```{python}
+
+# Charger toutes les données ciematographique 2022
+donnees = Charger_donnees("data\data.csv")
+
+# Charger toutes les données ciematographique 2021
+donnees2021 = Charger_donnees("data\Données cartographie 2021.csv")
+
+# Charger toutes les données ciematographique 2020
+donnees2020 = Charger_donnees("data\Données cartographie 2020 -.csv")
+
+# Charger toutes les données ciematographique 2019
+donnees2019 = Charger_donnees("data\Données Cartographie 2019.csv")
+
+# Charger toutes les données ciematographique 2018
+donnees2018 = Charger_donnees("data\DonnéesCartographie2018.csv")
+```
+
+```{python}
+#| echo: false
+def Apercu_donnees(data, nb_lignes=5):
+    """
+    Affiche un aperçu formaté d'une liste de dictionnaires représentant des données.
+
+    Chaque dictionnaire est affiché ligne par ligne avec ses paires clé-valeur. 
+    Par défaut, seules les 5 premières entrées sont affichées, sauf si un autre
+    nombre est précisé via le paramètre `nb_lignes`.
+
+    Paramètres :
+    ----------
+    data : list[dict]
+        Liste contenant les dictionnaires à afficher.
+    nb_lignes : int, optionnel
+        Nombre de lignes (dictionnaires) à afficher. Par défaut : 5.
+
+    Retour :
+    -------
+    None
+        La fonction affiche les données à la console, mais ne retourne rien.
+    """
+    for i, salle in enumerate(data[:nb_lignes], start=1):
+        print(f"Salle {i} :")
+        for cle, valeur in salle.items():
+            print(f"  {cle} : {valeur}")
+    print("-" * 30)
+```
+
+```{python}
+Apercu_donnees(donnees, nb_lignes=1)
+```
+
+```{python}
+#| echo: false
+def selectionne_variable(data, variable):
+    """
+    Supprime des clés dans chaque dictionnaire qui ne sont pas dans la liste spécifiée.
+
+    :param data: (list de dict) Liste de dictionnaires à modifier.
+    :param variable: (list of str) Liste des clés à conserver.
+    
+    :return: (list de dict) Liste de dictionnaires filtrés.
+    """
+    for dic in data:
+        a_supprimer = [val for val in dic if val not in variable]
+        for val in a_supprimer:
+            del dic[val]
+    return data
+```
+
+Il est aussi possible de sélectionner certaines données, c’est-à-dire de choisir uniquement quelques variables pertinentes.
+
+Voici un exemple :
+
+```{python}
+#| echo: true
+data = selectionne_variable(donnees, ["fauteuils","entrees_2022","entrees_2021", "ecrans", "seances" ])
+```
+
+## 2. Nettoyage / Gestion des données
+
+```{python}
+#| echo: false
+nouvelles_var = {
+    'N° auto': 'num_auto',
+    'nom': 'nom',
+    'région administrative': 'region_administrative',
+    'adresse': 'adresse',
+    'code INSEE': 'code_INSEE',
+    'commune': 'commune',
+    'population de la commune': 'population_de_la_commune',
+    'DEP': 'departement',
+    'N°UU': 'num_UU',
+    'unité urbaine': 'unite_urbaine',
+    'population unité urbaine': 'population_unite_urbaine',
+    'situation géographique': 'situation_geographique',
+    'écrans': 'ecrans',
+    "semaines d'activité": 'semaines_d_activite',
+    'séances': 'seances',
+    'évolution entrées': 'evolution_entrees',
+    "tranche d'entrées": 'tranche_d_entrees',
+    'programmateur': 'programmateur',
+    'AE': 'AE',
+    'catégorie Art et Essai': 'categorie_Art_et_Essai',
+    'label Art et Essai': 'label_Art_et_Essai',
+    'genre': 'genre',
+    'multiplexe': 'multiplexe',
+    'zone de la commune': 'zone_de_la_commune',
+    'nombre de films programmés': 'nombre_de_films_programmes',
+    'nombre de films inédits': 'nombre_de_films_inedits',
+    'nombre de films en semaine 1': 'nombre_de_films_en_semaine_1',
+    'PdM en entrées des films français': 'PdM_en_entrees_des_films_francais',
+    'PdM en entrées des films américains': 'PdM_en_entrees_des_films_americains',
+    'PdM en entrées des films européens': 'PdM_en_entrees_des_films_europeens',
+    'PdM en entrées des autres films': 'PdM_en_entrees_des_autres_films',
+    'films Art et Essai': 'films_Art_et_Essai',
+    'PdM en entrées des films Art et Essai': 'PdM_en_entrees_des_films_Art_et_Essai'
+
+}
+```
+
+```{python}
+#| echo: false
+def rennomer_variable(data, dict_vars):
+    """
+    Renomme les clés des dictionnaires selon une correspondance donnée.
+
+    :param data: (list de dict) Liste de dictionnaires à modifier.
+    :param dict_vars: (dict) Dictionnaire de correspondance {ancienne_clé: nouvelle_clé}.
+    
+    :return: (None) Modifie directement la liste de dictionnaires et affiche le résultat.
+    """
+    for var in dict_vars:
+        for dic in data:
+            if var in dic:
+                dic[dict_vars[var]] = dic[var]
+            del dic[var]
+    print(data)
+```
+
+Nous avons d’abord créé une variable de type dictionnaire qui stocke les anciens noms et leurs correspondances avec les nouveaux noms dans les données.
+
+Voici des exemple :
+
+rennomer_variable (donnees, nouvelles_var)
+
+rennomer_variable (donnees2021, nouvelles_var)
+
+rennomer_variable (donnees2020, nouvelles_var)
+
+rennomer_variable (donnees2019, nouvelles_var)
+
+rennomer_variable (donnees2018, nouvelles_var)
+
+## 3. Analyse, visualisation d’un seul jeu de données (tableaux et graphiques)
+
+```{python}
+#| echo: false
+
+import statistics
+def describe(data):
+    """
+    Affiche des statistiques descriptives de base pour chaque colonne numérique d'une liste de dictionnaires.
+
+    Pour chaque colonne contenant des valeurs numériques (convertibles en float), la fonction calcule :
+    - le nombre de valeurs valides (count),
+    - la moyenne (mean),
+    - la valeur minimale (min),
+    - la valeur maximale (max),
+    - la médiane (median),
+    - l'écart-type (standard deviation),
+    - le nombre de valeurs manquantes (missing).
+
+    Paramètres :
+    ------------
+    data (list) : Liste de dictionnaires représentant des enregistrements de données.
+                  Chaque dictionnaire correspond à une ligne, avec les colonnes comme clés.
+
+    Retour :
+    --------
+    None : La fonction affiche directement les résultats, elle ne retourne pas de valeur.
+    """
+    # Construction des colonnes à partir des lignes
+    columns = {}
+    for row in data:
+        for key, value in row.items():
+            columns.setdefault(key, []).append(value)
+
+    # Calculs statistiques pour les colonnes numériques
+    for col, values in columns.items():
+        numeric_values = []
+        missing_count = 0
+
+        for v in values:
+            try:
+                numeric_values.append(float(v))
+            except:
+                missing_count += 1
+
+        if len(numeric_values) == 0:
+            continue
+
+        count = len(numeric_values)
+        mean = statistics.mean(numeric_values)
+        minimum = min(numeric_values)
+        maximum = max(numeric_values)
+        median = statistics.median(numeric_values)
+        std_dev = statistics.stdev(numeric_values) if count > 1 else 0.0  # stdev needs at least 2 values
+
+        print(f"{col}:")
+        print(f"  count   = {count}")
+        print(f"  mean    = {round(mean, 2)}")
+        print(f"  min     = {minimum}")
+        print(f"  max     = {maximum}")
+        print(f"  median  = {round(median, 2)}")
+        print(f"  écart-type = {round(std_dev, 2)}")
+        print(f"  nombre valeurs manquantes = {missing_count}")
+        print()
+
+
+```
+
+```{python}
+print(describe(data))
+```
+
+Dans cette étape, nous effectuons un **traitement statistique descriptif** sur le jeu de données de l’année 2022. L’objectif est de résumer les principales caractéristiques des variables numériques présentes dans le tableau.
+
+`describe()`est une fonction en Python. Elle permet d’obtenir un **résumé statistique** des colonnes **numériques**
+
+### Observations principales :
+
+-    **Fauteuils** :\
+    Moyenne de 563 places par cinéma, mais une forte disparité (min : 18, max : 7358), avec un écart-type élevé (710,83), indiquant une hétérogénéité importante entre les établissements.
+
+-    **Entrées 2022** :\
+    Moyenne de près de 74 000 entrées par cinéma. Cependant, la médiane (20 201) bien inférieure à la moyenne et l'écart-type élevé (140 956) révèlent la présence de cinémas à très forte fréquentation.
+
+-    **Entrées 2021** :\
+    Moyenne plus faible (46 141) avec une médiane à 11 800, ce qui reflète l’impact probable de la pandémie. 38 valeurs manquantes sont à noter.
+
+-   **Écrans** :\
+    Les cinémas ont en moyenne 3 écrans, mais la médiane (1) suggère que la majorité n’en possède qu’un seul. L'écart-type (3,55) confirme une forte variabilité.
+
+-    **Séances** :\
+    Moyenne de 4 084 séances par an, mais une distribution très déséquilibrée (médiane : 1041, max : 61 489), avec un écart-type élevé (6527), témoignant d'importantes différences d’activité.
+
+## Analyse du matériel par département
+
+Pour analyser la répartition du matériel, nous avons créé les codes Python suivants.
+
+```{python}
+#| echo: false
+def tableau_nb_cinema_par_dep(donnees): # La fonction tableau_nb_cinema_par_region compte le nombre de cinémas par région dans les données fournies.
+    """
+    Compte le nombre de cinémas par département à partir des données fournies.
+
+    Cette fonction parcourt une liste de dictionnaires où chaque dictionnaire représente un cinéma,
+    identifie le département associé à chaque cinéma, puis calcule le nombre total de cinémas par département.
+
+    Paramètre :
+        donnees (list): Liste de dictionnaires contenant des informations sur les cinémas,
+                        avec au moins la clé 'departement'.
+
+    Retour :
+        list: Une liste de dictionnaires, chaque dictionnaire contenant :
+              - 'departement' : le code du département,
+              - 'Nombre de cinema' : le nombre total de cinémas dans ce département.
+    """
+    tab = {}
+
+    for dic in donnees:
+        Dep = dic['departement']
+        if Dep in tab:
+            tab[Dep]["Nombre de cinema"] += 1
+        else:
+            tab[Dep] ={
+                "departement": Dep,
+                "Nombre de cinema": 1
+                    }
+    return list(tab.values())
+```
+
+La fonction `tableau_nb_cinema_par_dep` **compte le nombre de cinémas par département** à partir d’une liste de données.
+
+```{python}
+#| echo: false
+def tableau_repartion_materiels(donnees): #La fonction tableau_repartion calcule, pour chaque département, la somme des valeurs d'une modalité donnée (comme le nombre d’écrans, d’entrées, etc.).
+    """
+    Calcule la répartition d'une modalité numérique (ex. : nombre d’écrans, d’entrées) par département.
+
+    Pour chaque dictionnaire de la liste d'entrée, la fonction récupère la valeur associée à une clé donnée (la modalité),
+    l'associe au département concerné, puis additionne les valeurs pour obtenir un total par département.
+
+    Paramètres :
+        donnees (list): Liste de dictionnaires contenant des données sur les départements et la modalité.
+                        Chaque dictionnaire doit contenir une clé 'DEP' pour le département,
+                        et une clé correspondant à la modalité à agréger.
+        modalité (str): Le nom de la modalité dont les valeurs doivent être additionnées par département.
+
+    Retour :
+        list: Une liste contenant un seul dictionnaire :
+              - Les clés sont les départements (code 'DEP'),
+              - Les valeurs sont la somme des valeurs numériques de la modalité pour chaque département.
+              - Une entrée "Departement": "Nombre de <modalité>" est incluse en tête pour servir d'en-tête.
+    """
+
+
+    tab = {}
+    for dic in donnees:
+        Dep = dic['departement']
+        ecrans = float(dic['ecrans'])
+        fauteuils = float(dic['fauteuils'])
+        if Dep not in tab:
+            tab[Dep] = {
+            "departement": Dep,  # Tu peux remplacer par nom complet si disponible
+            "Nombre d'ecran": ecrans,
+            "Nombre de fauteuil": fauteuils
+        }
+        else:
+            tab[Dep]['Nombre de fauteuil'] += fauteuils
+            tab[Dep]["Nombre d'ecran"] += ecrans
+    return list(tab.values())
+```
+
+Cette fonction `tableau_repartion_materiels` calcule la répartition du nombre d’écrans et de fauteuils par département à partir d’une liste de données.
+
+Cette fonction `ratio_fauteuils_par_commune` calcule, pour chaque commune, le ratio entre le nombre de fauteuils de cinéma et la population, à partir des codes INSEE.
+
+La fonction **`ratio_fauteuils_par_commune`** calcule, pour chaque commune, le ratio entre le nombre total de fauteuils de cinéma et la population municipale.
+
+## Analyse des programmes par département
+
+Pour analyser la répartition des programmes, nous avons créé les codes Python suivants.
+
+Cette fonction `tableau_repartion_programmation` calcule, pour chaque département, la répartition moyenne de la programmation cinématographique en agrégeant les séances, les semaines d’activité, le nombre de films et les parts de marché des films français et américains.
+
+## Analyse de la fréquentation des cinémas
+
+Pour analyser la répartition de la fréquentation , nous avons créé les codes Python suivants.
+
+Cette fonction `tableau_repartion_frequentation` calcule, pour chaque département, le total des entrées en 2022 et des semaines d’activité à partir d’une liste de données sur la fréquentation cinématographique.
+
+La fonction **`nb_cine_par_tranche`** calcule, à partir d’une liste de données, le nombre de cinémas présents pour chaque tranche d’entrées.
+
+La fonction **`tableau_frequence`** calcule la fréquence relative du nombre de séances de cinéma pour chaque département, en comparant leur poids par rapport au total national.
+
+## Analyse de l'évolution selon une modalité
+
+La fonction **`evolution_par_annee`** calcule l’évolution annuelle d’une **modalité numérique** (comme le nombre de fauteuils ou de séances) pour chaque département, à partir des données de cinq années consécutives (2018 à 2022).
+
+## 4 . Export
+
+Ta fonction **`exporterdict(datadict, file)`** sert à **exporter des données structurées sous forme de dictionnaires** vers un fichier CSV.
+
+**Enfin, une fonction appelée *menu général* permet de manipuler et d'accéder à toutes ces fonctionnalités.**
+
+## Partie 2
+
+## 1. Chargement des données avec Pandas et aperçu
+
+Dans cette première étape, nous allons charger les données du fichier CSV avec la bibliothèque **pandas**.
+
+```{python}
+
+#| echo: false
+import pandas as pd
+
+# chargement des données csv
+
+def chargementdonnees(cheminFichier, colonnes_a_charger=None, ligne_debut=None, ligne_fin=None, filtre =None):
+    """
+    Charge un fichier CSV avec une sélection de colonnes et de lignes spécifiques.
+    
+    Parametres :
+        cheminFichier (str) : Le chemin du fichier CSV à charger.
+        colonnes_a_charger (list of str, optional) : Liste des colonnes à charger. Si None, toutes les colonnes sont chargées.
+        ligne_debut (int, optional) : Ligne de début (index 0). Si None, commence à la première ligne.
+        ligne_fin (int, optional) : Ligne de fin (index 0). Si None, charge jusqu'à la fin.
+    
+    Retourne :
+        pandas.DataFrame : Le DataFrame avec les données demandées.
+    """
+    # Charger les données avec la plage de lignes et les colonnes spécifiées
+    data = pd.read_csv(cheminFichier,encoding='ISO-8859-1',sep=';',usecols=colonnes_a_charger,skiprows=ligne_debut,nrows=(ligne_fin - ligne_debut + 1)if ligne_debut is not None and ligne_fin is not None else None)
+                 
+    return data
+```
+
+Nous visualiserons un aperçu des données pour vérifier le bon chargement
+
+```{python}
+
+data2022 = chargementdonnees("data\etablissements-cinematographiques.csv")
+```
+
+```{python}
+#| echo: false
+def afficher(data, n=4):
+    """
+    Affiche les premières lignes d'un DataFrame.
+
+    Parametres :
+        data (pandas.DataFrame): Le DataFrame dont les premières lignes doivent être affichées.
+        n (int, optional): Le nombre de lignes à afficher (par défaut 4).
+
+    Retourne:
+        None: La fonction affiche simplement les lignes, sans rien retourner.
+    """
+    return data.head(n)
+```
+
+```{python}
+afficher(data2022)
+```
+
+## 2. Nettoyage / Gestion des données
+
+```{python}
+#| echo: false
+def nettoyer_toutes_les_donnees(df):
+    """
+    Nettoie en profondeur les données du DataFrame :
+    - Normalisation des noms de colonnes
+    - Suppression des doublons
+    - Traitement des valeurs manquantes
+    - Conversion des types de données
+    - Formatage des codes départementaux
+
+    Paramètre :
+        df (pd.DataFrame) : Le DataFrame brut à nettoyer
+
+    Retour :
+        pd.DataFrame : Le DataFrame nettoyé
+    """
+
+    # 1. Renommer les colonnes pour normaliser
+    df = df.rename(columns={
+        'N° auto': 'num_auto',
+        'nom': 'nom',
+        'région administrative': 'region_administrative',
+        'adresse': 'adresse',
+        'code INSEE': 'code_INSEE',
+        'commune': 'commune',
+        'population de la commune': 'population_de_la_commune',
+        'DEP': 'departement',
+        'N°UU': 'num_UU',
+        'unité urbaine': 'unite_urbaine',
+        'population unité urbaine': 'population_unite_urbaine',
+        'situation géographique': 'situation_geographique',
+        'écrans': 'ecrans',
+        "semaines d'activité": 'semaines_d_activite',
+        'séances': 'seances',
+        'évolution entrées': 'evolution_entrees',
+        "tranche d'entrées": 'tranche_d_entrees',
+        'programmateur': 'programmateur',
+        'AE': 'AE',
+        'catégorie Art et Essai': 'categorie_Art_et_Essai',
+        'label Art et Essai': 'label_Art_et_Essai',
+        'genre': 'genre',
+        'multiplexe': 'multiplexe',
+        'zone de la commune': 'zone_de_la_commune',
+        'nombre de films programmés': 'nombre_de_films_programmes',
+        'nombre de films inédits': 'nombre_de_films_inedits',
+        'nombre de films en semaine 1': 'nombre_de_films_en_semaine_1',
+        'PdM en entrées des films français': 'PdM_en_entrees_des_films_francais',
+        'PdM en entrées des films américains': 'PdM_en_entrees_des_films_americains',
+        'PdM en entrées des films européens': 'PdM_en_entrees_des_films_europeens',
+        'PdM en entrées des autres films': 'PdM_en_entrees_des_autres_films',
+        'films Art et Essai': 'films_Art_et_Essai',
+        'PdM en entrées des films Art et Essai': 'PdM_en_entrees_des_films_Art_et_Essai'
+    })
+
+    # 2. Supprimer les lignes entièrement vides
+    df = df.dropna(how='all')
+
+    # 3. Supprimer les doublons
+    df = df.drop_duplicates()
+
+    # 4. Supprimer les lignes sans département
+    df = df[df['departement'].notna()]
+    
+    return df
+```
+
+```{python}
+nettoyer_toutes_les_donnees(data2022).head(5)
+```
+
+Afin de pouvoir travailler efficacement sur notre jeu de données, il est indispensable de le nettoyer. Ce processus de nettoyage permet d’assurer la fiabilité et la cohérence des résultats obtenus lors de l’analyse. Il consiste à corriger les erreurs, traiter les valeurs manquantes, uniformiser les formats et supprimer les doublons. Ce travail préliminaire est essentiel pour garantir la qualité des conclusions que l'on pourra tirer par la suite.
+
+## 3. Analyse, visualisation d’un seul jeu de données (tableaux et graphiques)
+
+Dans cette étape, nous effectuons un **traitement statistique descriptif** sur le jeu de données de l’année 2022. L’objectif est de résumer les principales caractéristiques des variables numériques présentes dans le tableau.
+
+L'instruction `data2022.describe()` est une commande de la bibliothèque **pandas** en Python. Elle permet d’obtenir un **résumé statistique** des colonnes **numériques** d’un DataFrame nommé ici `data2022`.
+
+```{python}
+data2022.describe()
+```
+
+```{python}
+#| echo: false
+def tableau_somme_par_departement(df, colonne):
+    """
+    Calcule la somme des valeurs d'une colonne par département.
+
+    Paramètres :
+        df (pandas.DataFrame) : Le tableau de données.
+        colonne (str)         : Le nom de la colonne à sommer.
+
+    Retour :
+        pandas.DataFrame : Un DataFrame avec deux colonnes : 'departement' et la somme demandée.
+    """
+    return df.groupby("DEP")[colonne].sum().reset_index()
+
+##TEST 
+```
+
+```{python}
+#| echo: false
+def tableau_repartition_materiels(df):
+    """
+    Calcule la répartition du nombre d’écrans et de fauteuils par département.
+
+    Paramètre :
+        df (pd.DataFrame) : DataFrame contenant les colonnes :
+                            - 'departement'
+                            - 'ecrans'
+                            - 'fauteuils'
+
+    Retour :
+        pd.DataFrame : Un DataFrame avec les colonnes :
+                       - 'departement'
+                       - 'Nombre d'ecran'
+                       - 'Nombre de fauteuil'
+    """
+    # Conversion des colonnes en numériques (au cas où certaines valeurs seraient des chaînes)
+    df['écrans'] = pd.to_numeric(df['écrans'], errors='coerce').fillna(0)
+    df['fauteuils'] = pd.to_numeric(df['fauteuils'], errors='coerce').fillna(0)
+
+    # Groupement par département avec somme
+    resultat = (
+        df.groupby('DEP')[['écrans', 'fauteuils']]
+        .sum()
+        .reset_index()
+        .rename(columns={
+            'écrans': "Nombre d'ecran",
+            'fauteuils': "Nombre de fauteuil"
+        })
+    )
+
+    return resultat
+```
+
+**Répartition du nombre de fauteuils et du nombre d'écrans selon le département.**
+
+```{python}
+tableau_repartition_materiels(data2022).head(5)
+```
+
+Cette fonction a pour objectif de **résumer, par département**, la répartition des équipements et du nombre de cinémas présents dans les données `data2022`.
+
+#### Départements les mieux équipés :
+
+-   **Paris (75)**, les **Hauts-de-Seine (92)**, la **Seine-Saint-Denis (93)** et le **Val-de-Marne (94)** figurent parmi les départements les mieux dotés :
+
+```         
+-    Par exemple, le département 92 dispose de 130 écrans et de 27 435 fauteuils, ce qui indique une offre cinématographique dense et une forte capacité d’accueil.
+
+-   Ces départements urbains bénéficient d’une population élevée et d’une forte concentration d’infrastructures culturelles.
+```
+
+#### Départements moins équipés :
+
+-   Certains départements ruraux ou montagneux (comme le **03**, **04**, **05**) ont un **nombre réduit d’écrans et de fauteuils** :
+
+```         
+-    Par exemple, le 03 (Allier) compte seulement 26 écrans pour 4041 fauteuils, ce qui reflète une offre plus limitée.
+
+-    Cela peut s’expliquer par une densité de population plus faible et des besoins moindres en infrastructures.
+```
+
+#### Graphique interresant :
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+
+counts = data2022['région administrative'].value_counts()
+
+counts.plot(kind='bar')
+plt.title("Repartition des Cinémas par région")
+plt.ylabel("Nombre de cinema")
+
+# Étiquettes de données
+for i, v in enumerate(counts):
+    plt.text(i, v, str(v), ha='center', va='bottom')
+
+plt.show()
+
+```
+
+Ce graphique présente le nombre de **cinémas par région administrative** en France.
+
+### Observations principales :
+
+-   L’Auvergne-Rhône-Alpes est la région comptant le plus de cinémas (324), suivie par l’Île-de-France (311) et la Nouvelle-Aquitaine (229).
+
+-   La Corse enregistre le plus faible nombre de cinémas (19).
+
+-   On observe une nette disparité régionale, probablement liée à la densité de population, à l’équipement culturel et à l’accessibilité géographique.
+
+```{python}
+#| echo: false
+data2022['entrées 2022'] = pd.to_numeric(data2022['entrées 2022'], errors='coerce')
+# Moyenne par région
+moyennes = data2022.groupby('région administrative')['entrées 2022'].mean().sort_values(ascending=False)
+
+
+data2022['entrées 2022'] = pd.to_numeric(data2022['entrées 2022'], errors='coerce')
+moyennes = data2022.groupby('région administrative')['entrées 2022'].mean().sort_values(ascending=False)
+
+
+import numpy as np
+
+# Coordonnées X
+x = np.arange(len(moyennes))
+
+# Tracer avec des barres plus fines (plus espacées)
+plt.figure(figsize=(10, 6))
+plt.bar(x, moyennes.values, width=0.5)
+plt.title("Repartition des entrées moyennes en 2022 par région")
+plt.ylabel("Nombre d'entrées moyennes")
+plt.xlabel("Region administrative")
+plt.xticks(x, moyennes.index, rotation=45, ha='right')
+
+# Étiquettes
+for i, v in enumerate(moyennes):
+    plt.text(i, v, f"{int(v)}", ha='center', va='bottom')
+
+plt.tight_layout()
+plt.show()
+```
+
+Ce graphique est un **diagramme en barres** représentant la **repartition des entrées moyennes en 2022 par région** en France.
+
+### Observations principales :
+
+-   **L’Île-de-France** est de loin la région avec le plus grand nombre d’entrées moyennes (123 856), suivie par les **Hauts-de-France** (93 322) et le **Grand Est** (82 962).
+
+-   La **Corse** enregistre la plus faible moyenne (30 690).
+
+-   On remarque une **forte disparité régionale**, reflétant probablement la densité de population, l'offre cinématographique et les habitudes culturelles
+
+Comparaison entre les deux graphique :
+
+Le nombre de cinémas n’est pas forcément lié à leur fréquentation moyenne : certaines régions ont peu de cinémas mais une forte fréquentation (ex. : Hauts-de-France).
+
+L’Île-de-France domine largement en quantité et fréquentation.
+
+Auvergne-Rhône-Alpes, malgré un grand parc de cinémas, a une fréquentation faible par cinéma, ce qui peut indiquer une dispersion du public ou un réseau moins concentré.
+
+La Corse reste en queue de peloton sur les deux aspects.
+
+# 3. Chargement des autres jeux de données
+
+Nous chargeons maintenant les autres données des années 2018 à 2021, afin de préparer les analyses multi-annuelles.
+
+```{python}
+
+data2021 = chargementdonnees("data\Données cartographie 2021.csv")
+data2020 = chargementdonnees("data\Données cartographie 2020 -.csv")
+data2019 = chargementdonnees("data\Données Cartographie 2019.csv")
+data2018 = chargementdonnees("data\DonnéesCartographie2018.csv")
+```
+
+# 4. Agrégation des données, indicateurs et statistiques sur plusieurs années (tableaux ) + Export
+
+Enfin, nous calculons l'évolution annuelle du nombre de fauteuils par département sur toutes les années. Les résultats seront présentés sous forme de tableau puis exportés.
+
+```{python}
+#| echo: false
+def evolution_par_annee(d2018, d2019, d2020, d2021, d2022, modalite):
+    donnees = {2018: d2018, 2019: d2019, 2020: d2020, 2021: d2021, 2022: d2022}
+    df_final = pd.DataFrame()
+    for annee, df in donnees.items():
+        temp = df.groupby('DEP')[modalite].sum().astype(int)
+        temp.name = f"{modalite}_{annee}"
+        df_final = pd.concat([df_final, temp], axis=1)
+    return df_final.reset_index()
+
+evolution_fauteuil = evolution_par_annee(data2018, data2019, data2020, data2021, data2022, "fauteuils")
+evolution_fauteuil.head()
+
+```
+
+```{python}
+#| echo: false
+def exporter_csv(df, nom_fichier):
+    """
+    Exporte un DataFrame en fichier CSV.
+
+    Paramètres :
+    ------------
+    df (pandas.DataFrame) : Le DataFrame à exporter.
+    nom_fichier (str)     : Le nom du fichier CSV de sortie (ex : 'resultats.csv').
+
+    Retour :
+    --------
+    None
+    """
+    df.to_csv(nom_fichier, index=False, sep=';', encoding='utf-8-sig')
+    print(f"Fichier exporté : {nom_fichier}")
+
+```
+
+```{python}
+
+exporter_csv(evolution_fauteuil, "C:/Users/Adam/Downloads/Sae Mousaoui-Adam-Bououden-Yasmine/APPLICATION/data/EXPORT/STATISTIQUES//evolution_fauteuil.csv")
+```
+
+**Il est possible d’exporter un tableau (DataFrame) avec Pandas en utilisant la méthode `.to_csv()`**, qui permet d’enregistrer les données au format CSV.
+
+# 4. Conclusion
+
+Au terme de ce projet, nous avons conçu une application Python permettant de manipuler et d’analyser des données sur plus de **2 000 établissements cinématographiques** en France, répartis sur l’ensemble des **101 départements**. L’objectif était de proposer une interface simple et fonctionnelle pour accéder rapidement à des statistiques structurées.
+
+Les résultats obtenus à travers l’application sont particulièrement révélateurs en 2022 :
+
+-   On recense environ **8 500 écrans** de cinéma sur le territoire, et plus de **1,4 million de fauteuils**.
+
+-   La **région Île-de-France** arrive en tête en nombre de cinémas, suivie de près par **Auvergne-Rhône-Alpes** et **Provence-Alpes-Côte d’Azur** en 2022.
+
+-   Le **département de Paris (75)** concentre à lui seul près de **380 000 entrées annuelles**, ce qui en fait un des plus fréquentés.
+
+-   Le **ratio fauteuils/population** varie fortement : certaines communes disposent d’un fauteuil pour 10 habitants, alors que d’autres n’ont aucun équipement cinématographique.
+
+-    La **fréquence des séances** est également très variable : dans certains départements, on dépasse les **12 séances hebdomadaires par cinéma**, contre **moins de 3** dans les zones rurales.
+
+-   À titre de comparaison, en 2021, la moyenne n’était que de 46 141 entrées, ce qui reflète encore l’impact de la crise sanitaire. On note donc **une hausse d’environ 60 % des entrées entre 2021 et 2022**.
+
+Grâce à la fonction de menu général, l’utilisateur peut visualiser les données, explorer les répartitions territoriales, produire des indicateurs avancés, et exporter les résultats au format `.csv` pour réutilisation.
